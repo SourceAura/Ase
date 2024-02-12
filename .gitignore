@@ -1,0 +1,7 @@
+# Ignore the dataset folder and its contents
+data/
+
+# Ignore specific dataset files
+*.txt
+*.csv
+*.json

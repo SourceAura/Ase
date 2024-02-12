@@ -1,63 +1,36 @@
 package main
 
 import (
-	"encoding/gob"
 	"fmt"
 	"os"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
-const (
-	cifarDataDir = "data/cifar-10-batches-py/"
-)
+type model struct {
+	epochs   int
+	lossData string
+	time     string
+}
+
+func (m model) Init() tea.Cmd {
+	return nil
+}
+
+func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Handle messages here
+	return m, nil
+}
+
+func (m model) View() string {
+	return fmt.Sprintf("Epochs: %d | Loss Data: %s | Time: %s", m.epochs, m.lossData, m.time)
+}
 
 func main() {
-	// Load CIFAR dataset
-	trainData, trainLabels := loadCIFAR(cifarDataDir + "data_batch_1")
+	p := tea.NewProgram(model{})
 
-	// Preprocess the data
-	trainImages := preprocess(trainData)
-
-	// Print some information about the dataset
-	fmt.Printf("Number of training images: %d\n", len(trainImages))
-	fmt.Printf("Image dimensions: %dx%d\n", len(trainImages[0]), len(trainImages[0][0]))
-	fmt.Printf("Number of training labels: %d\n", len(trainLabels))
-}
-
-func loadCIFAR(filename string) ([][]uint8, []uint8) {
-	file, err := os.Open(filename)
-	if err != nil {
-		fmt.Println("Error opening file:", err)
+	if err := p.Start(); err != nil {
+		fmt.Println("could not run program:", err)
 		os.Exit(1)
 	}
-	defer file.Close()
-
-	decoder := gob.NewDecoder(file)
-
-	var batch Batch
-	err = decoder.Decode(&batch)
-	if err != nil {
-		fmt.Println("Error decoding file:", err)
-		os.Exit(1)
-	}
-
-	return batch.Images, batch.Labels
-}
-
-func preprocess(images [][]uint8) [][][]uint8 {
-	preprocessed := make([][][]uint8, len(images))
-	for i := range images {
-		image := make([][]uint8, 32)
-		for j := range image {
-			image[j] = make([]uint8, 32)
-			copy(image[j], images[i][j*32:(j+1)*32])
-		}
-		preprocessed[i] = image
-	}
-
-	return preprocessed
-}
-
-type Batch struct {
-	Labels []uint8
-	Images [][]uint8
 }
