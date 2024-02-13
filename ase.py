@@ -1,76 +1,46 @@
-# ase.py
+import sys
+import requests
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QTextEdit, QProgressBar
+from PyQt5.QtCore import QTimer
 
-import torch
-import torchvision
-import torchvision.transforms as transforms
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-
-# Define a simple CNN
-class Net(nn.Module):
+class MainWindow(QWidget):
     def __init__(self):
-        super(Net, self).__init__()
-        self.conv1 = nn.Conv2d(3, 6, 5)
-        self.pool = nn.MaxPool2d(2, 2)
-        self.conv2 = nn.Conv2d(6, 16, 5)
-        self.fc1 = nn.Linear(16 * 5 * 5, 120)
-        self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, 10)
+        super().__init__()
 
-    def forward(self, x):
-        x = self.pool(F.relu(self.conv1(x)))
-        x = self.pool(F.relu(self.conv2(x)))
-        x = x.view(-1, 16 * 5 * 5)
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = self.fc3(x)
-        return x
+        self.setWindowTitle("ASE Training Progress")
+        self.resize(400, 300)
 
-# Load CIFAR dataset
-transform = transforms.Compose(
-    [transforms.ToTensor(),
-     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setRange(0, 100)
 
-trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
-                                        download=True, transform=transform)
-trainloader = torch.utils.data.DataLoader(trainset, batch_size=4,
-                                          shuffle=True, num_workers=2)
+        self.log_text = QTextEdit()
+        self.log_text.setReadOnly(True)
 
-testset = torchvision.datasets.CIFAR10(root='./data', train=False,
-                                       download=True, transform=transform)
-testloader = torch.utils.data.DataLoader(testset, batch_size=4,
-                                         shuffle=False, num_workers=2)
+        layout = QVBoxLayout()
+        layout.addWidget(self.progress_bar)
+        layout.addWidget(self.log_text)
 
-classes = ('plane', 'car', 'bird', 'cat',
-           'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
+        self.setLayout(layout)
 
-# Define training function
-def train(net):
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.update_data)
+        self.timer.start(1000)  # Update data every second
 
-    for epoch in range(2):  # loop over the dataset multiple times
+        self.update_data()  # Initial update
 
-        running_loss = 0.0
-        for i, data in enumerate(trainloader, 0):
-            # get the inputs; data is a list of [inputs, labels]
-            inputs, labels = data
+    def update_data(self):
+        try:
+            response = requests.get("http://localhost:5000/training-data")
+            response.raise_for_status()  # Raise an exception for non-200 status codes
+            if response.status_code == 200:
+                data = response.json()
+                self.progress_bar.setValue(data["progress"])
+                self.log_text.setPlainText(data["log"])
+        except requests.exceptions.RequestException as e:
+            print("Error fetching training data:", e)
 
-            # zero the parameter gradients
-            optimizer.zero_grad()
-
-            # forward + backward + optimize
-            outputs = net(inputs)
-            loss = criterion(outputs, labels)
-            loss.backward()
-            optimizer.step()
-
-            # print statistics
-            running_loss += loss.item()
-            if i % 2000 == 1999:    # print every 2000 mini-batches
-                print('[%d, %5d] loss: %.3f' %
-                      (epoch + 1, i + 1, running_loss / 2000))
-                running_loss = 0.0
-
-    print('Finished Training')
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec_())
