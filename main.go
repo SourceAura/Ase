@@ -3,97 +3,78 @@ package main
 import (
 	"fmt"
 	"os"
-	"time"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
-// State represents the state of the model
-type State struct {
-	Epoch      int
-	TotalEpoch int
-	// Add other relevant fields as needed
-}
+const useHighPerformanceRenderer = false
 
-// LoadState loads the state from a file
-func LoadState() (State, error) {
-	// Load the state from the file
-	// Implementation depends on how the state is stored
-	return State{}, nil // Placeholder for demonstration
-}
+var (
+	titleStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#4F5D75")).
+			Background(lipgloss.Color("#A8D0E6")).
+			Padding(0, 1).
+			Border(lipgloss.RoundedBorder())
 
-// SaveState saves the current state to a file
-func SaveState(state State) error {
-	// Save the state to the file
-	// Implementation depends on how the state is stored
-	return nil // Placeholder for demonstration
-}
+	infoStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#ffffff")).
+			Background(lipgloss.Color("#A8D0E6")).
+			Padding(0, 1).
+			Border(lipgloss.RoundedBorder())
+)
 
-// Define the model struct
 type model struct {
-	State State
+	content string
+	ready   bool
 }
 
-// Define the Init function for the model
 func (m model) Init() tea.Cmd {
-	// Load the training state from the file
-	state, err := LoadState()
-	if err != nil {
-		// Use default state if loading fails
-		state = State{
-			Epoch:      1,
-			TotalEpoch: 10, // Default to 10 epochs
-		}
-	}
-	_ = state // Ignore the return value
-	m.State = state
-
-	// Start the training loop in the background
-	return train(m)
+	return nil
 }
 
-// Define the Update function for the model
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		if msg.String() == "q" {
+		if k := msg.String(); k == "ctrl+c" || k == "q" || k == "esc" {
 			return m, tea.Quit
 		}
+	case tea.WindowSizeMsg:
+		if !m.ready {
+			m.ready = true
+		}
 	}
+
 	return m, nil
 }
 
-// Define the View function for the model
 func (m model) View() string {
-	return fmt.Sprintf("Epoch: %d / %d", m.State.Epoch, m.State.TotalEpoch)
+	if !m.ready {
+		return "\n  Fetching training details..."
+	}
+	return fmt.Sprintf("%s\n%s\n%s", m.headerView(), m.content, m.footerView())
 }
 
-// Define the training loop function
-func train(m model) tea.Cmd {
-	return func() tea.Msg {
-		for {
-			// Simulate training
-			time.Sleep(time.Second)
+func (m model) headerView() string {
+	title := titleStyle.Render("ASE Training Details")
+	line := strings.Repeat("─", len(title))
+	return lipgloss.JoinHorizontal(lipgloss.Center, title, line)
+}
 
-			// Increment epoch
-			m.State.Epoch++
-
-			// Save state
-			err := SaveState(m.State)
-			if err != nil {
-				// Handle error
-			}
-
-			// Return a message to trigger an update
-			return m
-		}
-	}
+func (m model) footerView() string {
+	info := infoStyle.Render("Scroll to view more")
+	line := strings.Repeat("─", len(info))
+	return lipgloss.JoinHorizontal(lipgloss.Center, line, info)
 }
 
 func main() {
-	p := tea.NewProgram(model{})
+	p := tea.NewProgram(
+		model{},
+		tea.WithAltScreen(),
+	)
 
-	if err := p.Start(); err != nil {
+	if _, err := p.Run(); err != nil {
 		fmt.Println("could not run program:", err)
 		os.Exit(1)
 	}
